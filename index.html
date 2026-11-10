@@ -193,6 +193,15 @@
 
         <!-- Results Display Area -->
         <section id="results-container" class="hidden mt-16 pt-8 border-t border-slate-700/50 pb-16">
+            <div class="flex flex-col sm:flex-row justify-between items-center max-w-4xl mx-auto mb-6 px-2 gap-3">
+                <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                    <span>💾</span> Draw Saved Automatically (Persists on Refresh)
+                </span>
+                <button onclick="resetCurrentDraw()" class="text-xs text-rose-300 hover:text-white bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 font-medium">
+                    <span>🗑️</span> Clear & Redraw
+                </button>
+            </div>
+
             <h2 class="text-5xl text-center font-festive text-white mb-10 drop-shadow-md">🎉 Official Draw Results 🎉</h2>
             
             <!-- Views Navigation -->
@@ -339,6 +348,7 @@
         }
 
         // --- State Management ---
+        const STORAGE_KEY = 'secret_santa_saved_state_v1';
         let participants = ['Conor', 'Rebecca', 'Darragh', 'Fiona', 'Gavin', 'Jess', 'Alma'];
         let exclusions = [
             { p1: 'Conor', p2: 'Rebecca' },
@@ -350,6 +360,48 @@
         let confirmedGivers = {};
         let currentReceiverData = null;
         let customBaseUrl = "https://ebox27-beep.github.io/secret-santa/";
+
+        function saveState() {
+            try {
+                const state = {
+                    participants,
+                    exclusions,
+                    currentAssignments,
+                    currentDrawId,
+                    confirmedGivers,
+                    customBaseUrl
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.warn("Storage save failed:", e);
+            }
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const state = JSON.parse(raw);
+                if (state.participants && Array.isArray(state.participants)) participants = state.participants;
+                if (state.exclusions && Array.isArray(state.exclusions)) exclusions = state.exclusions;
+                if (state.currentAssignments && typeof state.currentAssignments === 'object') currentAssignments = state.currentAssignments;
+                if (state.currentDrawId) currentDrawId = state.currentDrawId;
+                if (state.confirmedGivers && typeof state.confirmedGivers === 'object') confirmedGivers = state.confirmedGivers;
+                if (state.customBaseUrl) customBaseUrl = state.customBaseUrl;
+                return true;
+            } catch (e) {
+                console.warn("Storage load failed:", e);
+                return false;
+            }
+        }
+
+        function resetCurrentDraw() {
+            currentAssignments = null;
+            confirmedGivers = {};
+            hideResults();
+            saveState();
+            showToast("Draw cleared. You can now adjust participants or generate a new draw.", "success");
+        }
 
         // --- Utility Functions ---
         function escapeHtml(unsafe) {
@@ -428,8 +480,10 @@
             
             participants.push(val);
             input.value = '';
+            currentAssignments = null;
             refreshUI();
             hideResults();
+            saveState();
         }
 
         const participantInput = document.getElementById('participant-input');
@@ -443,8 +497,10 @@
             const p = participants[index];
             participants.splice(index, 1);
             exclusions = exclusions.filter(e => e.p1 !== p && e.p2 !== p);
+            currentAssignments = null;
             refreshUI();
             hideResults();
+            saveState();
         }
 
         function addExclusion() {
@@ -467,16 +523,20 @@
             }
             
             exclusions.push({ p1, p2 });
+            currentAssignments = null;
             renderExclusions();
             hideResults();
+            saveState();
             s1.selectedIndex = 0;
             s2.selectedIndex = 0;
         }
 
         function removeExclusion(index) {
             exclusions.splice(index, 1);
+            currentAssignments = null;
             renderExclusions();
             hideResults();
+            saveState();
         }
 
         // --- UI Rendering ---
@@ -597,6 +657,7 @@
             if (success) {
                 currentDrawId = 'DRAW_' + Math.random().toString(36).substring(2, 8).toUpperCase();
                 confirmedGivers = {};
+                saveState();
                 subscribeToDrawStatus(currentDrawId);
                 displayResults(assignments);
                 showToast("Secret Santa successfully matched!", "success");
@@ -614,6 +675,7 @@
                 opened: true,
                 time: timeStr
             };
+            saveState();
             renderTrackerList();
 
             if (db && currentUser && drawId) {
@@ -652,6 +714,7 @@
                                 };
                             }
                         });
+                        saveState();
                         renderTrackerList();
                     }
                 }, (error) => {
@@ -701,6 +764,7 @@
 
         function updateCustomBaseUrl(val) {
             customBaseUrl = val;
+            saveState();
             if (currentAssignments) renderLinksList(currentAssignments);
         }
 
@@ -708,6 +772,7 @@
             customBaseUrl = "https://ebox27-beep.github.io/secret-santa/";
             const input = document.getElementById('base-url-input');
             if (input) input.value = customBaseUrl;
+            saveState();
             if (currentAssignments) renderLinksList(currentAssignments);
         }
 
@@ -772,15 +837,16 @@
             }
         }
 
-        function displayResults(assignments) {
+        function displayResults(assignments, autoScroll = true) {
             currentAssignments = assignments;
+            saveState();
             const container = document.getElementById('results-container');
             const listA = document.getElementById('list-a');
             const listB = document.getElementById('list-b');
             
             const baseUrlInput = document.getElementById('base-url-input');
-            if (baseUrlInput && !baseUrlInput.value) {
-                baseUrlInput.value = detectBaseUrl();
+            if (baseUrlInput) {
+                baseUrlInput.value = customBaseUrl || detectBaseUrl();
             }
             
             listA.innerHTML = '';
@@ -822,9 +888,11 @@
             void container.offsetWidth; 
             container.classList.add('animate-fade-in');
             
-            setTimeout(() => {
-                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
+            if (autoScroll) {
+                setTimeout(() => {
+                    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
         }
 
         function renderLinksList(assignments) {
@@ -943,6 +1011,7 @@
                 showToast(`Marked ${giver} as opened.`, "success");
             } else {
                 delete confirmedGivers[giver];
+                saveState();
                 renderTrackerList();
                 showToast(`Reset ${giver}'s open status.`, "success");
             }
@@ -1098,6 +1167,7 @@
             addExclusion,
             removeExclusion,
             generateDraw,
+            resetCurrentDraw,
             switchResultTab,
             toggleList,
             updateCustomBaseUrl,
@@ -1113,10 +1183,22 @@
 
         // Initialize App on load
         window.addEventListener('load', async () => {
+            loadState();
             await initAuth();
             checkURLForMatch();
             window.addEventListener('hashchange', checkURLForMatch);
             refreshUI();
+
+            const baseUrlInput = document.getElementById('base-url-input');
+            if (baseUrlInput && customBaseUrl) {
+                baseUrlInput.value = customBaseUrl;
+            }
+
+            if (currentAssignments && Object.keys(currentAssignments).length > 0) {
+                displayResults(currentAssignments, false);
+                if (currentDrawId) subscribeToDrawStatus(currentDrawId);
+            }
+
             setInterval(createSnowflake, 300);
         });
     </script>
