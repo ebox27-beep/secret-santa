@@ -1023,15 +1023,21 @@
             loadState();
             checkURLForMatch();
             window.addEventListener('hashchange', checkURLForMatch);
-            refreshUI();
 
-            const baseUrlInput = document.getElementById('base-url-input');
-            if (baseUrlInput && customBaseUrl) {
-                baseUrlInput.value = customBaseUrl;
-            }
+            // checkURLForMatch() strips the whole #main-app organizer UI out of the DOM when a
+            // recipient opens a private match link, so none of the organizer setup below applies
+            // (and would throw trying to touch elements that no longer exist) in that case.
+            if (document.getElementById('main-app')) {
+                refreshUI();
 
-            if (currentAssignments && Object.keys(currentAssignments).length > 0) {
-                displayResults(currentAssignments, false);
+                const baseUrlInput = document.getElementById('base-url-input');
+                if (baseUrlInput && customBaseUrl) {
+                    baseUrlInput.value = customBaseUrl;
+                }
+
+                if (currentAssignments && Object.keys(currentAssignments).length > 0) {
+                    displayResults(currentAssignments, false);
+                }
             }
 
             setInterval(createSnowflake, 300);
