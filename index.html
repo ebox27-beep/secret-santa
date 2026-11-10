@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secret Santa Draw Creator</title>
+
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Load Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Mountains+of+Christmas:wght@700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind Config for Custom Fonts and Colors -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        festive: ['"Mountains of Christmas"', 'cursive'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* CSS for the gentle snowfall effect */
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); }
+            100% { transform: translateY(110vh) rotate(360deg); }
+        }
+        .snowflake {
+            position: absolute;
+            top: -10vh;
+            color: rgba(255, 255, 255, 0.8);
+            user-select: none;
+            pointer-events: none;
+            animation: fall linear forwards;
+            z-index: 0;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Smooth fade-in animation for results */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-800 font-sans relative overflow-x-hidden selection:bg-red-500 selection:text-white pb-20">
+
+    <!-- Snow Animation Container -->
+    <div id="snow-container" class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true"></div>
+
+    <!-- Receiver View (Shown to participants via their private match links) -->
+    <div id="receiver-view" class="hidden fixed inset-0 z-40 flex flex-col items-center justify-center bg-slate-900 px-4">
+        <div class="text-center bg-slate-800/80 backdrop-blur-md p-10 rounded-3xl border border-slate-700 shadow-2xl max-w-lg w-full relative">
+            <h1 class="text-4xl sm:text-5xl text-white font-festive mb-12 drop-shadow-md">
+                Hello, <span id="rv-giver" class="text-red-500"></span>!
+            </h1>
+
+            <!-- Gift Box / Reveal Trigger -->
+            <div id="rv-gift-container" class="relative">
+                <button id="rv-gift" onclick="revealMatch()" class="text-8xl sm:text-9xl animate-bounce hover:scale-110 transition-transform cursor-pointer filter drop-shadow-2xl focus:outline-none" aria-label="Tap to reveal">
+                    🎁
+                </button>
+                <p id="rv-instruction" class="text-slate-400 mt-6 font-bold tracking-widest uppercase text-sm animate-pulse">Tap to Reveal Your Match</p>
+            </div>
+
+            <!-- The Reveal (Hidden initially) -->
+            <div id="rv-result" class="hidden mt-4">
+                <p class="text-slate-300 text-xl font-medium mb-4">You are the Secret Santa for...</p>
+                <div id="rv-receiver" class="text-6xl sm:text-7xl font-festive text-green-500 drop-shadow-[0_0_15px_rgba(34,197,94,0.4)]"></div>
+            </div>
+
+            <!-- Return button for organizer testing only (strictly hidden and removed for real recipients) -->
+            <div id="rv-exit-container" class="hidden mt-8 pt-4 border-t border-slate-700/60">
+                <button onclick="exitReceiverView()" class="text-xs text-slate-400 hover:text-white underline transition">
+                    ← Return to Organizer Setup (Preview Mode)
+                </button>
+            </div>
+
+            <!-- Recipient Festive Footer (Shown to recipients instead of return button) -->
+            <div id="rv-recipient-footer" class="mt-8 pt-4 border-t border-slate-700/60 text-slate-400 text-xs font-medium">
+                🎄 Secret Santa • Keep your match secret and safe! 🤫
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Organizer Content -->
+    <main id="main-app" class="max-w-6xl mx-auto px-4 relative z-10">
+        <!-- Header -->
+        <header class="text-center pt-10 pb-8">
+            <h1 class="text-5xl md:text-6xl font-festive text-white tracking-wide drop-shadow-[0_4px_10px_rgba(239,68,68,0.5)]">
+                🎅 Secret Santa Draw
+            </h1>
+            <p class="text-slate-300 mt-3 text-base md:text-lg max-w-xl mx-auto">
+                Easily set up your gift exchange, add custom exclusion rules, and share matches privately with co-organizer splits or private reveal links.
+            </p>
+        </header>
+
+        <div class="grid md:grid-cols-2 gap-8 mb-8">
+            <!-- Participants Panel -->
+            <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-6 md:p-8 border border-white/20 relative overflow-hidden">
+                <div class="absolute -top-16 -right-16 text-9xl opacity-5">🎅</div>
+
+                <h2 class="text-3xl font-festive text-slate-800 mb-6 flex items-center gap-3">
+                    <span>1. Add Participants</span>
+                </h2>
+
+                <div class="flex flex-col sm:flex-row gap-2 mb-4 relative z-10">
+                    <input type="text" id="participant-input" placeholder="Enter name..." class="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:border-red-500 focus:ring-4 focus:ring-red-100 outline-none transition bg-white text-gray-800 placeholder-gray-400">
+                    <button onclick="addParticipant()" class="w-full sm:w-auto bg-green-600 text-white hover:bg-green-700 px-6 py-3 rounded-xl font-bold transition shadow-sm hover:shadow-md flex justify-center items-center gap-2">
+                        Add <span class="hidden sm:inline">Person</span>
+                    </button>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-100 rounded-xl p-2 h-64 overflow-y-auto">
+                    <ul id="participant-list" class="space-y-2">
+                        <li class="text-slate-400 text-center italic mt-6">No participants added yet.</li>
+                    </ul>
+                </div>
+                <div class="text-right text-xs text-slate-400 mt-2 font-medium">
+                    Total: <span id="participant-count">0</span>
+                </div>
+            </div>
+
+            <!-- Exclusions Panel -->
+            <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-6 md:p-8 border border-white/20 relative overflow-hidden">
+                <div class="absolute -top-16 -right-16 text-9xl opacity-5">💑</div>
+
+                <h2 class="text-3xl font-festive text-slate-800 mb-6 flex items-center gap-3">
+                    <span>2. Couple Exclusions (Mutual)</span>
+                </h2>
+
+                <div class="flex flex-col sm:flex-row items-center gap-2 mb-6 relative z-10">
+                    <select id="excl-from" aria-label="Partner 1" class="w-full sm:flex-1 px-3 py-3 rounded-xl border border-gray-300 focus:border-red-500 focus:ring-4 focus:ring-red-100 outline-none transition bg-white text-gray-800"></select>
+
+                    <span class="text-sm font-bold text-rose-500 hidden sm:block whitespace-nowrap bg-rose-50 px-2 py-1 rounded-lg">⇄ Couple ⇄</span>
+
+                    <select id="excl-to" aria-label="Partner 2" class="w-full sm:flex-1 px-3 py-3 rounded-xl border border-gray-300 focus:border-red-500 focus:ring-4 focus:ring-red-100 outline-none transition bg-white text-gray-800"></select>
+
+                    <button onclick="addExclusion()" class="w-full sm:w-auto bg-slate-800 text-white hover:bg-slate-700 px-5 py-3 rounded-xl font-bold transition shadow-sm hover:shadow-md">
+                        Add Pair
+                    </button>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-100 rounded-xl p-2 h-64 overflow-y-auto">
+                    <ul id="exclusion-list" class="space-y-2">
+                        <li class="text-slate-400 text-center italic mt-6">No couple exclusions added.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generate Action -->
+        <div class="text-center py-6">
+            <button onclick="generateDraw()" class="group relative inline-flex items-center justify-center px-10 py-5 text-2xl font-bold text-white transition-all duration-300 bg-red-600 font-festive rounded-full hover:bg-red-500 focus:outline-none focus:ring-4 focus:ring-red-400/50 shadow-[0_0_30px_rgba(220,38,38,0.5)] hover:shadow-[0_0_50px_rgba(220,38,38,0.8)] hover:-translate-y-1">
+                <span class="mr-3 text-3xl transition-transform group-hover:scale-125 group-hover:-rotate-12">🎁</span>
+                Generate Secret Santa
+                <span class="ml-3 text-3xl transition-transform group-hover:scale-125 group-hover:rotate-12">🎄</span>
+            </button>
+        </div>
+
+        <!-- Results Display Area -->
+        <section id="results-container" class="hidden mt-16 pt-8 border-t border-slate-700/50 pb-16">
+            <div class="flex flex-col sm:flex-row justify-between items-center max-w-4xl mx-auto mb-6 px-2 gap-3">
+                <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                    <span>💾</span> Draw Saved Automatically (Persists on Refresh)
+                </span>
+                <button onclick="resetCurrentDraw()" class="text-xs text-rose-300 hover:text-white bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 font-medium">
+                    <span>🗑️</span> Clear & Redraw
+                </button>
+            </div>
+
+            <h2 class="text-5xl text-center font-festive text-white mb-10 drop-shadow-md">🎉 Official Draw Results 🎉</h2>
+
+            <!-- Views Navigation -->
+            <div class="flex flex-wrap justify-center gap-3 sm:gap-4 mb-8">
+                <button onclick="switchResultTab('split')" id="btn-tab-split" class="px-5 sm:px-6 py-3 rounded-full bg-red-600 text-white font-bold transition shadow-lg border border-red-500 text-sm sm:text-base">Co-Organizer Split</button>
+                <button onclick="switchResultTab('links')" id="btn-tab-links" class="px-5 sm:px-6 py-3 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 font-bold transition shadow-lg border border-slate-600 text-sm sm:text-base">Share Links</button>
+            </div>
+
+            <!-- Split View -->
+            <div id="view-split" class="max-w-5xl mx-auto space-y-6">
+                <p class="text-slate-300 text-center mb-6 max-w-2xl mx-auto text-lg leading-relaxed">Have Organizer A reveal List A (while Organizer B looks away) to distribute their halves, and vice-versa. This ensures neither sees their own match!</p>
+
+                <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 max-w-3xl mx-auto flex flex-col sm:flex-row items-center gap-3 mb-2">
+                    <label for="organizer-a-select" class="text-slate-300 text-sm font-semibold whitespace-nowrap">List A Revealer (Organizer A):</label>
+                    <select id="organizer-a-select" onchange="setOrganizerA(this.value)" class="w-full sm:flex-1 px-3 py-2 rounded-xl border border-slate-600 bg-slate-900 text-white text-sm focus:border-red-500 focus:ring-2 focus:ring-red-400 outline-none"></select>
+
+                    <label for="organizer-b-select" class="text-slate-300 text-sm font-semibold whitespace-nowrap">List B Revealer (Organizer B):</label>
+                    <select id="organizer-b-select" onchange="setOrganizerB(this.value)" class="w-full sm:flex-1 px-3 py-2 rounded-xl border border-slate-600 bg-slate-900 text-white text-sm focus:border-red-500 focus:ring-2 focus:ring-red-400 outline-none"></select>
+                </div>
+                <p class="text-slate-400 text-xs text-center max-w-2xl mx-auto -mt-1">Whoever you pick here will still see who they themselves are giving to, but the card showing who is secretly gifting <em>them</em> is automatically kept out of the list they personally reveal.</p>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- Half A -->
+                    <div class="bg-slate-800/90 backdrop-blur-sm rounded-3xl p-6 border border-slate-600 shadow-xl">
+                        <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+                            <h3 class="text-3xl text-white font-festive">List A</h3>
+                            <button onclick="toggleList('list-a')" class="text-sm bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-600 transition font-bold flex items-center gap-2">
+                                <span>👁️</span> Toggle Visibility
+                            </button>
+                        </div>
+                        <div id="list-a" class="hidden flex-col gap-3"></div>
+                    </div>
+                    <!-- Half B -->
+                    <div class="bg-slate-800/90 backdrop-blur-sm rounded-3xl p-6 border border-slate-600 shadow-xl">
+                        <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+                            <h3 class="text-3xl text-white font-festive">List B</h3>
+                            <button onclick="toggleList('list-b')" class="text-sm bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-600 transition font-bold flex items-center gap-2">
+                                <span>👁️</span> Toggle Visibility
+                            </button>
+                        </div>
+                        <div id="list-b" class="hidden flex-col gap-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Links View -->
+            <div id="view-links" class="hidden max-w-3xl mx-auto space-y-6">
+                <div class="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-4 border border-slate-700 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <label for="base-url-input" class="text-slate-300 text-sm font-semibold whitespace-nowrap">Base Web Address:</label>
+                    <input type="text" id="base-url-input" oninput="updateCustomBaseUrl(this.value)" value="https://ebox27-beep.github.io/secret-santa/" placeholder="https://ebox27-beep.github.io/secret-santa/" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:border-red-500 focus:ring-2 focus:ring-red-400 outline-none">
+                    <button onclick="resetBaseUrl()" class="text-xs bg-slate-700 text-slate-300 hover:text-white px-3 py-2 rounded-xl transition">Reset</button>
+                </div>
+
+                <div class="bg-slate-800/90 backdrop-blur-sm rounded-3xl p-6 sm:p-8 border border-slate-600 shadow-xl">
+                    <p class="text-slate-300 text-center mb-6 text-base sm:text-lg">Send each participant their private link or message. When opened, they get an interactive festive "Tap to Reveal" gift box showing only their match!</p>
+                    <div id="links-list" class="space-y-4"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- Custom Modal for Errors -->
+    <div id="custom-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center hidden z-50 transition-opacity">
+        <div class="bg-white p-8 rounded-3xl max-w-md w-full mx-4 text-center shadow-2xl relative transform transition-transform scale-95" id="modal-content">
+            <div class="absolute -top-10 left-1/2 transform -translate-x-1/2 text-7xl drop-shadow-lg">❄️</div>
+            <h3 id="modal-title" class="text-4xl font-festive text-red-600 mb-4 mt-4"></h3>
+            <p id="modal-message" class="text-slate-600 mb-8 font-medium leading-relaxed"></p>
+            <button onclick="closeModal()" class="bg-slate-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-700 transition shadow-lg w-full">
+                Understood
+            </button>
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // --- State Management ---
+        const STORAGE_KEY = 'secret_santa_saved_state_v1';
+        let participants = ['Conor', 'Rebecca', 'Darragh', 'Fiona', 'Gavin', 'Jess', 'Alma'];
+        let exclusions = [
+            { p1: 'Conor', p2: 'Rebecca' },
+            { p1: 'Darragh', p2: 'Fiona' },
+            { p1: 'Gavin', p2: 'Jess' }
+        ];
+        let currentAssignments = null;
+        let currentDrawId = "DRAW_DEFAULT";
+        let currentReceiverData = null;
+        let customBaseUrl = "https://ebox27-beep.github.io/secret-santa/";
+        let organizerA = 'Conor';
+        let organizerB = 'Rebecca';
+
+        function saveState() {
+            try {
+                const state = {
+                    participants,
+                    exclusions,
+                    currentAssignments,
+                    currentDrawId,
+                    customBaseUrl,
+                    organizerA,
+                    organizerB
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.warn("Storage save failed:", e);
+            }
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const state = JSON.parse(raw);
+                if (state.participants && Array.isArray(state.participants)) participants = state.participants;
+                if (state.exclusions && Array.isArray(state.exclusions)) exclusions = state.exclusions;
+                if (state.currentAssignments && typeof state.currentAssignments === 'object') currentAssignments = state.currentAssignments;
+                if (state.currentDrawId) currentDrawId = state.currentDrawId;
+                if (state.customBaseUrl) customBaseUrl = state.customBaseUrl;
+                if (typeof state.organizerA === 'string') organizerA = state.organizerA;
+                if (typeof state.organizerB === 'string') organizerB = state.organizerB;
+                return true;
+            } catch (e) {
+                console.warn("Storage load failed:", e);
+                return false;
+            }
+        }
+
+        function resetCurrentDraw() {
+            currentAssignments = null;
+            hideResults();
+            saveState();
+            showToast("Draw cleared. You can now adjust participants or generate a new draw.", "success");
+        }
+
+        // --- Utility Functions ---
+        function escapeHtml(unsafe) {
+            if (!unsafe) return "";
+            const div = document.createElement('div');
+            div.innerText = unsafe;
+            return div.innerHTML;
+        }
+
+        function showToast(message, type = 'error') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-red-600' : 'bg-emerald-600';
+
+            toast.className = `flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl text-white font-medium transform transition-all duration-300 translate-y-10 opacity-0 pointer-events-auto ${bgColor}`;
+            toast.innerHTML = `
+                <span class="text-2xl">${type === 'error' ? '⚠️' : '✅'}</span>
+                <span>${escapeHtml(message)}</span>
+            `;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function showModal(title, message) {
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('modal-content');
+
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                content.classList.remove('scale-95');
+                content.classList.add('scale-100');
+            });
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('modal-content');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function hideResults() {
+            const container = document.getElementById('results-container');
+            container.classList.add('hidden');
+            container.classList.remove('animate-fade-in');
+        }
+
+        // --- Core Interactions ---
+        function addParticipant() {
+            const input = document.getElementById('participant-input');
+            const val = input.value.trim();
+
+            if (!val) {
+                showToast("Please enter a name.", "error");
+                return;
+            }
+
+            if (participants.some(p => p.toLowerCase() === val.toLowerCase())) {
+                showToast(`${val} has already been added!`, "error");
+                return;
+            }
+
+            participants.push(val);
+            input.value = '';
+            currentAssignments = null;
+            refreshUI();
+            hideResults();
+            saveState();
+        }
+
+        const participantInput = document.getElementById('participant-input');
+        if (participantInput) {
+            participantInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') addParticipant();
+            });
+        }
+
+        function removeParticipant(index) {
+            const p = participants[index];
+            participants.splice(index, 1);
+            exclusions = exclusions.filter(e => e.p1 !== p && e.p2 !== p);
+            currentAssignments = null;
+            refreshUI();
+            hideResults();
+            saveState();
+        }
+
+        function addExclusion() {
+            const s1 = document.getElementById('excl-from');
+            const s2 = document.getElementById('excl-to');
+            const p1 = s1.value;
+            const p2 = s2.value;
+
+            if (!p1 || !p2) {
+                showToast("Please select two participants to pair together.", "error");
+                return;
+            }
+            if (p1 === p2) {
+                showToast("A participant cannot be paired with themselves!", "error");
+                return;
+            }
+            if (exclusions.some(e => (e.p1 === p1 && e.p2 === p2) || (e.p1 === p2 && e.p2 === p1))) {
+                showToast("This couple exclusion already exists.", "error");
+                return;
+            }
+
+            exclusions.push({ p1, p2 });
+            currentAssignments = null;
+            renderExclusions();
+            hideResults();
+            saveState();
+            s1.selectedIndex = 0;
+            s2.selectedIndex = 0;
+        }
+
+        function removeExclusion(index) {
+            exclusions.splice(index, 1);
+            currentAssignments = null;
+            renderExclusions();
+            hideResults();
+            saveState();
+        }
+
+        // --- UI Rendering ---
+        function refreshUI() {
+            renderParticipants();
+            renderExclusions();
+            updateDropdowns();
+            updateOrganizerDropdowns();
+        }
+
+        function renderParticipants() {
+            const list = document.getElementById('participant-list');
+            const count = document.getElementById('participant-count');
+            list.innerHTML = '';
+            count.innerText = participants.length;
+
+            if (participants.length === 0) {
+                list.innerHTML = `<li class="text-slate-400 text-center italic mt-6">No participants added yet.</li>`;
+                return;
+            }
+
+            participants.forEach((p, index) => {
+                list.innerHTML += `
+                    <li class="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-slate-100 mb-2 transition hover:shadow-md hover:border-red-100 group">
+                        <span class="font-medium text-slate-700 flex items-center gap-3">
+                            <span class="text-xl bg-slate-50 w-8 h-8 rounded-full flex items-center justify-center shadow-inner">👤</span>
+                            ${escapeHtml(p)}
+                        </span>
+                        <button onclick="removeParticipant(${index})" class="text-red-300 hover:text-red-600 hover:bg-red-50 p-2 rounded-full transition opacity-50 group-hover:opacity-100" title="Remove Participant">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </li>
+                `;
+            });
+        }
+
+        function updateDropdowns() {
+            const s1 = document.getElementById('excl-from');
+            const s2 = document.getElementById('excl-to');
+            const v1 = s1.value;
+            const v2 = s2.value;
+
+            let options = '<option value="" disabled selected>Select Participant</option>';
+            participants.forEach(p => {
+                const escaped = escapeHtml(p);
+                options += `<option value="${escaped}">${escaped}</option>`;
+            });
+
+            s1.innerHTML = options;
+            s2.innerHTML = options;
+
+            if (participants.includes(v1)) s1.value = v1;
+            if (participants.includes(v2)) s2.value = v2;
+        }
+
+        function updateOrganizerDropdowns() {
+            const selA = document.getElementById('organizer-a-select');
+            const selB = document.getElementById('organizer-b-select');
+            if (!selA || !selB) return;
+
+            let options = '<option value="">None selected</option>';
+            participants.forEach(p => {
+                const escaped = escapeHtml(p);
+                options += `<option value="${escaped}">${escaped}</option>`;
+            });
+
+            selA.innerHTML = options;
+            selB.innerHTML = options;
+
+            selA.value = participants.includes(organizerA) ? organizerA : '';
+            selB.value = participants.includes(organizerB) ? organizerB : '';
+        }
+
+        function setOrganizerA(val) {
+            if (val && val === organizerB) {
+                showToast("List A and List B revealers must be two different people.", "error");
+                updateOrganizerDropdowns();
+                return;
+            }
+            organizerA = val;
+            saveState();
+            if (currentAssignments) renderSplitLists(currentAssignments);
+        }
+
+        function setOrganizerB(val) {
+            if (val && val === organizerA) {
+                showToast("List A and List B revealers must be two different people.", "error");
+                updateOrganizerDropdowns();
+                return;
+            }
+            organizerB = val;
+            saveState();
+            if (currentAssignments) renderSplitLists(currentAssignments);
+        }
+
+        function renderExclusions() {
+            const list = document.getElementById('exclusion-list');
+            list.innerHTML = '';
+
+            if (exclusions.length === 0) {
+                list.innerHTML = `<li class="text-slate-400 text-center italic mt-6">No couple exclusions added.</li>`;
+                return;
+            }
+
+            exclusions.forEach((e, index) => {
+                list.innerHTML += `
+                    <li class="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-slate-100 mb-2 transition hover:shadow-md hover:border-red-100 group">
+                        <span class="font-medium text-slate-700 flex items-center gap-2 flex-wrap">
+                            <span class="font-bold text-red-600 bg-red-50 px-2 py-1 rounded-md">${escapeHtml(e.p1)}</span>
+                            <span class="text-sm font-semibold text-rose-500 flex items-center gap-1">⇄ couple (mutual) ⇄</span>
+                            <span class="font-bold text-red-600 bg-red-50 px-2 py-1 rounded-md">${escapeHtml(e.p2)}</span>
+                        </span>
+                        <button onclick="removeExclusion(${index})" class="text-red-300 hover:text-red-600 hover:bg-red-50 p-2 rounded-full transition opacity-50 group-hover:opacity-100" title="Remove Couple Rule">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </li>
+                `;
+            });
+        }
+
+        // --- Draw Generation Algorithm ---
+        function generateDraw() {
+            if (participants.length < 2) {
+                showModal("Need More Elves!", "You need at least 2 participants to generate a Secret Santa draw.");
+                return;
+            }
+
+            let assignments = {};
+            let givers = [...participants].sort(() => Math.random() - 0.5);
+            let availableReceivers = new Set(participants);
+
+            let iterations = 0;
+            const MAX_ITERATIONS = 100000;
+
+            function backtrack(giverIndex) {
+                if (iterations++ > MAX_ITERATIONS) return false;
+                if (giverIndex === givers.length) return true;
+
+                let giver = givers[giverIndex];
+                let possibleReceivers = Array.from(availableReceivers).sort(() => Math.random() - 0.5);
+
+                for (let receiver of possibleReceivers) {
+                    if (giver === receiver) continue;
+                    if (exclusions.some(e => (e.p1 === giver && e.p2 === receiver) || (e.p1 === receiver && e.p2 === giver))) continue;
+
+                    assignments[giver] = receiver;
+                    availableReceivers.delete(receiver);
+
+                    if (backtrack(giverIndex + 1)) return true;
+
+                    delete assignments[giver];
+                    availableReceivers.add(receiver);
+                }
+                return false;
+            }
+
+            const success = backtrack(0);
+
+            if (success) {
+                currentDrawId = 'DRAW_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+                saveState();
+                displayResults(assignments);
+                showToast("Secret Santa successfully matched!", "success");
+            } else {
+                showModal("Impossible Constraints", "Could not find a valid combination. The current exclusion rules make it impossible for everyone to give and receive exactly one gift without breaking a rule.");
+            }
+        }
+
+        // --- Privacy Display Features ---
+        function switchResultTab(tab) {
+            document.getElementById('view-split').classList.toggle('hidden', tab !== 'split');
+            document.getElementById('view-links').classList.toggle('hidden', tab !== 'links');
+
+            const btnSplit = document.getElementById('btn-tab-split');
+            const btnLinks = document.getElementById('btn-tab-links');
+
+            const activeClass = "px-5 sm:px-6 py-3 rounded-full bg-red-600 text-white font-bold transition shadow-lg border border-red-500 text-sm sm:text-base";
+            const inactiveClass = "px-5 sm:px-6 py-3 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 font-bold transition shadow-lg border border-slate-600 text-sm sm:text-base";
+
+            btnSplit.className = tab === 'split' ? activeClass : inactiveClass;
+            btnLinks.className = tab === 'links' ? activeClass : inactiveClass;
+        }
+
+        function toggleList(listId) {
+            document.getElementById(listId).classList.toggle('hidden');
+            document.getElementById(listId).classList.toggle('flex');
+        }
+
+        function detectBaseUrl() {
+            if (customBaseUrl && customBaseUrl.trim()) {
+                return customBaseUrl.trim().replace(/\/+$/, '') + '/';
+            }
+            try {
+                const origin = window.location.origin;
+                const pathname = window.location.pathname;
+                if (origin && origin !== "null" && !window.location.protocol.startsWith('blob') && !window.location.protocol.startsWith('file') && !window.location.href.startsWith('about:')) {
+                    return (origin + pathname).replace(/\/+$/, '') + '/';
+                }
+            } catch (e) {}
+            return "https://ebox27-beep.github.io/secret-santa/";
+        }
+
+        function updateCustomBaseUrl(val) {
+            customBaseUrl = val;
+            saveState();
+            if (currentAssignments) renderLinksList(currentAssignments);
+        }
+
+        function resetBaseUrl() {
+            customBaseUrl = "https://ebox27-beep.github.io/secret-santa/";
+            const input = document.getElementById('base-url-input');
+            if (input) input.value = customBaseUrl;
+            saveState();
+            if (currentAssignments) renderLinksList(currentAssignments);
+        }
+
+        function copyToClipboard(text, btnElement) {
+            const originalHtml = btnElement ? btnElement.innerHTML : null;
+            function execCopy() {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.top = "0";
+                textArea.style.left = "0";
+                textArea.style.width = "2em";
+                textArea.style.height = "2em";
+                textArea.style.padding = "0";
+                textArea.style.border = "none";
+                textArea.style.outline = "none";
+                textArea.style.boxShadow = "none";
+                textArea.style.background = "transparent";
+                textArea.setAttribute("readonly", "");
+
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                textArea.setSelectionRange(0, 99999);
+
+                let ok = false;
+                try {
+                    ok = document.execCommand('copy');
+                } catch (err) {
+                    ok = false;
+                }
+                document.body.removeChild(textArea);
+                return ok;
+            }
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => {
+                    handleSuccess();
+                }).catch(() => {
+                    if (execCopy()) handleSuccess();
+                    else handleFailure();
+                });
+            } else {
+                if (execCopy()) handleSuccess();
+                else handleFailure();
+            }
+
+            function handleSuccess() {
+                showToast("Copied to clipboard!", "success");
+                if (btnElement) {
+                    btnElement.innerHTML = `<span>✅</span> Copied!`;
+                    btnElement.classList.add('bg-emerald-600');
+                    setTimeout(() => {
+                        if (originalHtml) btnElement.innerHTML = originalHtml;
+                        btnElement.classList.remove('bg-emerald-600');
+                    }, 2000);
+                }
+            }
+
+            function handleFailure() {
+                showToast("Could not auto-copy. Please select text directly.", "error");
+            }
+        }
+
+        function renderSplitLists(assignments) {
+            const listA = document.getElementById('list-a');
+            const listB = document.getElementById('list-b');
+
+            listA.innerHTML = '';
+            listB.innerHTML = '';
+            listA.classList.add('hidden');
+            listA.classList.remove('flex');
+            listB.classList.add('hidden');
+            listB.classList.remove('flex');
+
+            const sortedGivers = Object.keys(assignments).sort((a, b) => a.localeCompare(b));
+
+            // Each card shows "giver -> receiver". The surprise that must stay hidden from a
+            // person is whoever is secretly giving TO them (i.e. the card where they are the
+            // receiver) — not the card showing who they themselves are giving to, since every
+            // giver already knows their own assignment.
+            // Organizer A reveals List A, so any card where Organizer A is the RECEIVER must
+            // NOT be in List A (goes to B instead). Same logic for Organizer B and List B.
+            const forcedIntoA = [];
+            const forcedIntoB = [];
+            const remaining = [];
+
+            sortedGivers.forEach(giver => {
+                const receiver = assignments[giver];
+                if (organizerA && receiver === organizerA) {
+                    forcedIntoB.push(giver);
+                } else if (organizerB && receiver === organizerB) {
+                    forcedIntoA.push(giver);
+                } else {
+                    remaining.push(giver);
+                }
+            });
+
+            const targetForA = Math.max(0, Math.ceil(sortedGivers.length / 2) - forcedIntoA.length);
+            const groupA = [...forcedIntoA, ...remaining.slice(0, targetForA)].sort((a, b) => a.localeCompare(b));
+            const groupB = [...forcedIntoB, ...remaining.slice(targetForA)].sort((a, b) => a.localeCompare(b));
+
+            function renderCard(giver) {
+                const receiver = assignments[giver];
+                const escapedGiver = escapeHtml(giver);
+                const escapedReceiver = escapeHtml(receiver);
+                return `
+                    <div class="bg-[#fefce8] p-4 rounded-xl shadow-md border-l-8 border-red-500 flex justify-between items-center transform transition hover:scale-[1.02]">
+                        <div class="font-bold text-slate-800 text-lg">${escapedGiver}</div>
+                        <div class="text-2xl animate-pulse px-2">🎁</div>
+                        <div class="font-bold text-green-700 font-festive text-2xl">${escapedReceiver}</div>
+                    </div>
+                `;
+            }
+
+            groupA.forEach(giver => { listA.innerHTML += renderCard(giver); });
+            groupB.forEach(giver => { listB.innerHTML += renderCard(giver); });
+        }
+
+        function displayResults(assignments, autoScroll = true) {
+            currentAssignments = assignments;
+            saveState();
+            const container = document.getElementById('results-container');
+
+            const baseUrlInput = document.getElementById('base-url-input');
+            if (baseUrlInput) {
+                baseUrlInput.value = customBaseUrl || detectBaseUrl();
+            }
+
+            switchResultTab('split');
+            updateOrganizerDropdowns();
+            renderSplitLists(assignments);
+            renderLinksList(assignments);
+
+            container.classList.remove('hidden');
+            void container.offsetWidth;
+            container.classList.add('animate-fade-in');
+
+            if (autoScroll) {
+                setTimeout(() => {
+                    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
+        }
+
+        function renderLinksList(assignments) {
+            const linksList = document.getElementById('links-list');
+            if (!linksList || !assignments) return;
+            linksList.innerHTML = '';
+
+            const base = detectBaseUrl();
+            const sortedGivers = Object.keys(assignments).sort((a, b) => a.localeCompare(b));
+
+            sortedGivers.forEach((giver) => {
+                const receiver = assignments[giver];
+                const escapedGiver = escapeHtml(giver);
+
+                const matchData = btoa(encodeURIComponent(JSON.stringify({ giver, receiver, drawId: currentDrawId })));
+                const shareUrl = `${base}#match=${matchData}`;
+                const inviteMessage = `🎅 Secret Santa! Hey ${giver}, here is your confidential gift assignment link: ${shareUrl}`;
+
+                linksList.innerHTML += `
+                    <div class="bg-slate-700/60 p-4 sm:p-5 rounded-2xl border border-slate-600 flex flex-col gap-3">
+                        <div class="flex flex-wrap justify-between items-center gap-2">
+                            <span class="text-white font-bold text-lg flex items-center gap-2">
+                                <span class="text-red-400">🎁</span> ${escapedGiver}
+                            </span>
+                            <div class="flex items-center gap-2">
+                                <button onclick="testReveal('${escapeHtml(giver)}', '${escapeHtml(receiver)}')" class="text-xs bg-slate-600 hover:bg-slate-500 text-slate-200 px-3 py-1.5 rounded-lg transition font-medium" title="Preview reveal screen">
+                                    👁️ Test Reveal
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="relative">
+                            <input type="text" readonly value="${shareUrl}" onclick="this.select()" class="w-full bg-slate-900/90 text-slate-300 text-xs sm:text-sm font-mono px-3 py-2.5 rounded-xl border border-slate-700 select-all outline-none">
+                        </div>
+
+                        <div class="flex flex-wrap gap-2 pt-1">
+                            <button onclick="copyToClipboard('${shareUrl}', this)" class="flex-1 min-w-[120px] bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm py-2 px-3 rounded-xl font-bold transition flex items-center justify-center gap-1.5 shadow">
+                                <span>🔗</span> Copy Link
+                            </button>
+                            <button onclick="copyToClipboard('${inviteMessage.replace(/'/g, "\\'")}', this)" class="flex-1 min-w-[120px] bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm py-2 px-3 rounded-xl font-bold transition flex items-center justify-center gap-1.5 border border-slate-600">
+                                <span>💬</span> Copy Message
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function testReveal(giver, receiver) {
+            currentReceiverData = { giver, receiver, drawId: currentDrawId };
+            document.getElementById('main-app').classList.add('hidden');
+            const rv = document.getElementById('receiver-view');
+            rv.classList.remove('hidden');
+
+            // Allow organizer to return back to dashboard when testing
+            const exitContainer = document.getElementById('rv-exit-container');
+            const recipientFooter = document.getElementById('rv-recipient-footer');
+            if (exitContainer) exitContainer.classList.remove('hidden');
+            if (recipientFooter) recipientFooter.classList.add('hidden');
+
+            document.getElementById('rv-giver').innerText = giver;
+            document.getElementById('rv-receiver').innerText = receiver;
+
+            const giftContainer = document.getElementById('rv-gift-container');
+            const result = document.getElementById('rv-result');
+            const rvGift = document.getElementById('rv-gift');
+
+            rvGift.classList.remove('animate-bounce');
+            rvGift.classList.add('animate-ping');
+            giftContainer.classList.remove('hidden');
+            result.classList.add('hidden');
+        }
+
+        function exitReceiverView() {
+            const mainApp = document.getElementById('main-app');
+            if (mainApp) mainApp.classList.remove('hidden');
+            document.getElementById('receiver-view').classList.add('hidden');
+            try {
+                if (window.location.protocol.startsWith('http') && window.history && window.history.replaceState) {
+                    const cleanUrl = window.location.pathname + window.location.search.replace(/[\?&]match=[^&]+/, '');
+                    window.history.replaceState({}, document.title, cleanUrl || window.location.pathname);
+                } else if (window.location.hash) {
+                    window.location.hash = '';
+                }
+            } catch (e) {
+                // Silently ignore in sandboxed or blob preview environments
+            }
+        }
+
+        // --- Receiver View Auto-Trigger Logic ---
+        function checkURLForMatch() {
+            let matchParam = null;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('match')) matchParam = urlParams.get('match');
+
+            if (!matchParam && window.location.hash) {
+                const hashContent = window.location.hash.replace(/^#/, '');
+                const hashParams = new URLSearchParams(hashContent);
+                if (hashParams.get('match')) {
+                    matchParam = hashParams.get('match');
+                } else if (!hashContent.includes('=')) {
+                    matchParam = hashContent;
+                }
+            }
+
+            if (matchParam) {
+                try {
+                    const matchData = JSON.parse(decodeURIComponent(atob(matchParam)));
+                    currentReceiverData = matchData;
+
+                    // Completely strip organizer view from the DOM for link recipients
+                    const mainApp = document.getElementById('main-app');
+                    if (mainApp) mainApp.remove();
+
+                    // Completely remove organizer return controls
+                    const exitContainer = document.getElementById('rv-exit-container');
+                    if (exitContainer) exitContainer.remove();
+
+                    // Ensure clean recipient footer is visible
+                    const recipientFooter = document.getElementById('rv-recipient-footer');
+                    if (recipientFooter) recipientFooter.classList.remove('hidden');
+
+                    document.getElementById('receiver-view').classList.remove('hidden');
+
+                    document.getElementById('rv-giver').innerText = escapeHtml(matchData.giver);
+                    document.getElementById('rv-receiver').innerText = escapeHtml(matchData.receiver);
+
+                } catch (e) {
+                    showToast("This match link is invalid or corrupted.", "error");
+                }
+            }
+        }
+
+        function revealMatch() {
+            const giftContainer = document.getElementById('rv-gift-container');
+            const result = document.getElementById('rv-result');
+            const rvGift = document.getElementById('rv-gift');
+
+            rvGift.classList.remove('animate-bounce');
+            rvGift.classList.add('animate-ping');
+
+            setTimeout(() => {
+                giftContainer.classList.add('hidden');
+                result.classList.remove('hidden');
+                result.classList.add('animate-fade-in');
+
+                for(let i=0; i<20; i++) {
+                    setTimeout(createSnowflake, i * 100);
+                }
+            }, 600);
+        }
+
+        // --- Visual Effects Setup ---
+        function createSnowflake() {
+            const snowContainer = document.getElementById('snow-container');
+            if (!snowContainer) return;
+
+            const snow = document.createElement('div');
+            snow.classList.add('snowflake');
+
+            const flakes = ['❄', '❅', '❆', '•'];
+            snow.innerText = flakes[Math.floor(Math.random() * flakes.length)];
+
+            snow.style.left = (Math.random() * 100) + 'vw';
+            const duration = Math.random() * 6 + 6;
+            snow.style.animationDuration = duration + 's';
+            snow.style.opacity = (Math.random() * 0.5 + 0.1).toString();
+            snow.style.fontSize = (Math.random() * 15 + 10) + 'px';
+
+            snowContainer.appendChild(snow);
+            setTimeout(() => {
+                if (snow.parentNode) snow.remove();
+            }, duration * 1000);
+        }
+
+        // Expose functions globally for HTML event attributes
+        Object.assign(window, {
+            addParticipant,
+            removeParticipant,
+            addExclusion,
+            removeExclusion,
+            generateDraw,
+            resetCurrentDraw,
+            switchResultTab,
+            toggleList,
+            setOrganizerA,
+            setOrganizerB,
+            updateCustomBaseUrl,
+            resetBaseUrl,
+            copyToClipboard,
+            testReveal,
+            exitReceiverView,
+            revealMatch,
+            closeModal
+        });
+
+        // Initialize App on load
+        window.addEventListener('load', () => {
+            loadState();
+            checkURLForMatch();
+            window.addEventListener('hashchange', checkURLForMatch);
+            refreshUI();
+
+            const baseUrlInput = document.getElementById('base-url-input');
+            if (baseUrlInput && customBaseUrl) {
+                baseUrlInput.value = customBaseUrl;
+            }
+
+            if (currentAssignments && Object.keys(currentAssignments).length > 0) {
+                displayResults(currentAssignments, false);
+            }
+
+            setInterval(createSnowflake, 300);
+        });
+    </script>
+</body>
+</html>
