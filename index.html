@@ -73,7 +73,7 @@
     <!-- Snow Animation Container -->
     <div id="snow-container" class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true"></div>
 
-    <!-- Receiver View (Hidden by default, shown via Share Links) -->
+    <!-- Receiver View (Shown to participants via their private match links) -->
     <div id="receiver-view" class="hidden fixed inset-0 z-40 flex flex-col items-center justify-center bg-slate-900 px-4">
         <div class="text-center bg-slate-800/80 backdrop-blur-md p-10 rounded-3xl border border-slate-700 shadow-2xl max-w-lg w-full relative">
             <h1 class="text-4xl sm:text-5xl text-white font-festive mb-12 drop-shadow-md">
@@ -102,16 +102,21 @@
                 </div>
             </div>
 
-            <!-- Return button for testing/organizers -->
-            <div class="mt-8 pt-4 border-t border-slate-700/60">
+            <!-- Return button for organizer testing only (strictly hidden and removed for real recipients) -->
+            <div id="rv-exit-container" class="hidden mt-8 pt-4 border-t border-slate-700/60">
                 <button onclick="exitReceiverView()" class="text-xs text-slate-400 hover:text-white underline transition">
-                    ← Return to Organizer Setup
+                    ← Return to Organizer Setup (Preview Mode)
                 </button>
+            </div>
+
+            <!-- Recipient Festive Footer (Shown to recipients instead of return button) -->
+            <div id="rv-recipient-footer" class="mt-8 pt-4 border-t border-slate-700/60 text-slate-400 text-xs font-medium">
+                🎄 Secret Santa • Keep your match secret and safe! 🤫
             </div>
         </div>
     </div>
 
-    <!-- Main Content -->
+    <!-- Main Organizer Content -->
     <main id="main-app" class="max-w-6xl mx-auto px-4 relative z-10">
         <!-- Header -->
         <header class="text-center pt-10 pb-8">
@@ -141,7 +146,6 @@
                 
                 <div class="bg-slate-50 border border-slate-100 rounded-xl p-2 h-64 overflow-y-auto">
                     <ul id="participant-list" class="space-y-2">
-                        <!-- List items injected here -->
                         <li class="text-slate-400 text-center italic mt-6">No participants added yet.</li>
                     </ul>
                 </div>
@@ -172,12 +176,10 @@
 
                 <div class="bg-slate-50 border border-slate-100 rounded-xl p-2 h-64 overflow-y-auto">
                     <ul id="exclusion-list" class="space-y-2">
-                        <!-- Exclusions injected here -->
                         <li class="text-slate-400 text-center italic mt-6">No couple exclusions added.</li>
                     </ul>
                 </div>
             </div>
-
         </div>
 
         <!-- Generate Action -->
@@ -211,7 +213,7 @@
                         <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
                             <h3 class="text-3xl text-white font-festive">List A</h3>
                             <button onclick="toggleList('list-a')" class="text-sm bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-600 transition font-bold flex items-center gap-2">
-                                <span>👁️</span> Toggle Visiblity
+                                <span>👁️</span> Toggle Visibility
                             </button>
                         </div>
                         <div id="list-a" class="hidden flex-col gap-3"></div>
@@ -231,17 +233,9 @@
 
             <!-- Links View -->
             <div id="view-links" class="hidden max-w-3xl mx-auto space-y-6">
-                <!-- Base URL Configuration & Sandbox Guard -->
-                <div id="sandbox-warning" class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 text-amber-200 text-sm hidden">
-                    <div class="font-bold text-amber-300 flex items-center gap-2 mb-1">
-                        <span>⚠️</span> Preview Sandbox Detected
-                    </div>
-                    <span>Because this app is running in an embedded preview, links default to a simulated address. If you are hosting this file elsewhere (like GitHub Pages), enter your URL below so links work for your friends:</span>
-                </div>
-
                 <div class="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-4 border border-slate-700 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                     <label for="base-url-input" class="text-slate-300 text-sm font-semibold whitespace-nowrap">Base Web Address:</label>
-                    <input type="text" id="base-url-input" oninput="updateCustomBaseUrl(this.value)" placeholder="https://your-website.com/secret-santa" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:border-red-500 focus:ring-2 focus:ring-red-400 outline-none">
+                    <input type="text" id="base-url-input" oninput="updateCustomBaseUrl(this.value)" value="https://ebox27-beep.github.io/secret-santa/" placeholder="https://ebox27-beep.github.io/secret-santa/" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:border-red-500 focus:ring-2 focus:ring-red-400 outline-none">
                     <button onclick="resetBaseUrl()" class="text-xs bg-slate-700 text-slate-300 hover:text-white px-3 py-2 rounded-xl transition">Reset</button>
                 </div>
 
@@ -251,9 +245,8 @@
                 </div>
             </div>
 
-            <!-- Tracker & Validator View -->
+            <!-- Tracker View -->
             <div id="view-tracker" class="hidden max-w-4xl mx-auto space-y-6">
-                <!-- Live Automatic Status Header -->
                 <div class="bg-slate-800/90 backdrop-blur-sm rounded-3xl p-6 border border-slate-600 shadow-xl">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
@@ -276,7 +269,6 @@
                     </div>
                 </div>
 
-                <!-- Participant Status List -->
                 <div class="bg-slate-800/90 backdrop-blur-sm rounded-3xl p-6 border border-slate-600 shadow-xl">
                     <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
                         <h4 class="text-xl text-white font-semibold">Participant Status</h4>
@@ -285,9 +277,7 @@
                         </span>
                     </div>
                     
-                    <div id="tracker-list" class="space-y-3">
-                        <!-- Populated dynamically -->
-                    </div>
+                    <div id="tracker-list" class="space-y-3"></div>
                 </div>
             </div>
         </section>
@@ -315,7 +305,6 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables provided by the environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
 
@@ -324,7 +313,6 @@
         let currentUser = null;
         let unsubscribeTracker = null;
 
-        // Initialize services if configuration is available
         if (firebaseConfig) {
             try {
                 const app = initializeApp(firebaseConfig);
@@ -335,7 +323,6 @@
             }
         }
 
-        // Authenticate before queries
         async function initAuth() {
             if (!auth) return;
             try {
@@ -360,9 +347,9 @@
         ];
         let currentAssignments = null;
         let currentDrawId = "DRAW_DEFAULT";
-        let confirmedGivers = {}; // giver -> { opened: boolean, time: string }
+        let confirmedGivers = {};
         let currentReceiverData = null;
-        let customBaseUrl = "";
+        let customBaseUrl = "https://ebox27-beep.github.io/secret-santa/";
 
         // --- Utility Functions ---
         function escapeHtml(unsafe) {
@@ -699,17 +686,17 @@
         }
 
         function detectBaseUrl() {
-            if (customBaseUrl.trim()) {
-                return customBaseUrl.trim().replace(/\/+$/, '');
+            if (customBaseUrl && customBaseUrl.trim()) {
+                return customBaseUrl.trim().replace(/\/+$/, '') + '/';
             }
             try {
                 const origin = window.location.origin;
                 const pathname = window.location.pathname;
                 if (origin && origin !== "null" && !window.location.protocol.startsWith('blob') && !window.location.protocol.startsWith('file') && !window.location.href.startsWith('about:')) {
-                    return origin + pathname;
+                    return (origin + pathname).replace(/\/+$/, '') + '/';
                 }
             } catch (e) {}
-            return "https://secretsanta.local";
+            return "https://ebox27-beep.github.io/secret-santa/";
         }
 
         function updateCustomBaseUrl(val) {
@@ -718,10 +705,9 @@
         }
 
         function resetBaseUrl() {
-            customBaseUrl = "";
-            const defaultBase = detectBaseUrl();
+            customBaseUrl = "https://ebox27-beep.github.io/secret-santa/";
             const input = document.getElementById('base-url-input');
-            if (input) input.value = defaultBase;
+            if (input) input.value = customBaseUrl;
             if (currentAssignments) renderLinksList(currentAssignments);
         }
 
@@ -792,12 +778,6 @@
             const listA = document.getElementById('list-a');
             const listB = document.getElementById('list-b');
             
-            const isSandbox = !window.location.origin || window.location.origin === "null" || window.location.protocol.startsWith('blob') || window.location.protocol.startsWith('file');
-            const warningEl = document.getElementById('sandbox-warning');
-            if (warningEl) {
-                warningEl.classList.toggle('hidden', !isSandbox);
-            }
-
             const baseUrlInput = document.getElementById('base-url-input');
             if (baseUrlInput && !baseUrlInput.value) {
                 baseUrlInput.value = detectBaseUrl();
@@ -979,6 +959,12 @@
             const rv = document.getElementById('receiver-view');
             rv.classList.remove('hidden');
             
+            // Allow organizer to return back to dashboard when testing
+            const exitContainer = document.getElementById('rv-exit-container');
+            const recipientFooter = document.getElementById('rv-recipient-footer');
+            if (exitContainer) exitContainer.classList.remove('hidden');
+            if (recipientFooter) recipientFooter.classList.add('hidden');
+
             document.getElementById('rv-giver').innerText = giver;
             document.getElementById('rv-receiver').innerText = receiver;
 
@@ -996,10 +982,10 @@
         }
 
         function exitReceiverView() {
+            const mainApp = document.getElementById('main-app');
+            if (mainApp) mainApp.classList.remove('hidden');
             document.getElementById('receiver-view').classList.add('hidden');
-            document.getElementById('main-app').classList.remove('hidden');
             try {
-                // Only modify history state on standard http/https origins to avoid SecurityError in blob:/sandboxed environments
                 if (window.location.protocol.startsWith('http') && window.history && window.history.replaceState) {
                     const cleanUrl = window.location.pathname + window.location.search.replace(/[\?&]match=[^&]+/, '');
                     window.history.replaceState({}, document.title, cleanUrl || window.location.pathname);
@@ -1033,7 +1019,18 @@
                     const matchData = JSON.parse(decodeURIComponent(atob(matchParam)));
                     currentReceiverData = matchData;
                     
-                    document.getElementById('main-app').classList.add('hidden');
+                    // Completely strip organizer view from the DOM for link recipients
+                    const mainApp = document.getElementById('main-app');
+                    if (mainApp) mainApp.remove();
+
+                    // Completely remove organizer return controls
+                    const exitContainer = document.getElementById('rv-exit-container');
+                    if (exitContainer) exitContainer.remove();
+
+                    // Ensure clean recipient footer is visible
+                    const recipientFooter = document.getElementById('rv-recipient-footer');
+                    if (recipientFooter) recipientFooter.classList.remove('hidden');
+
                     document.getElementById('receiver-view').classList.remove('hidden');
                     
                     document.getElementById('rv-giver').innerText = escapeHtml(matchData.giver);
